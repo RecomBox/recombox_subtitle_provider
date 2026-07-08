@@ -116,7 +116,6 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
     let mut map_subtitles_table = write_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?;
     
     for sub_path in sub_path_vec{
-      let generator = SnowID::new(1)?;
       let sub_id = generator.generate();
 
       let file_stem = sub_path.file_stem()
