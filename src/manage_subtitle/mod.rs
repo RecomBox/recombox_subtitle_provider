@@ -1,7 +1,8 @@
-use redb::Database;
+use redb::{Database, MultimapTableDefinition};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{RwLock, Arc};
+use redb::TableDefinition;
 
 use std::fs;
 use once_cell::sync::Lazy;
@@ -10,11 +11,16 @@ use crate::manage_subtitle::get_installed_subtitles::GetInstalledSubtitlesData;
 
 pub mod install_subtitle;
 pub mod get_installed_subtitles;
+pub mod remove_installed_subtitle;
 
 static DATABASE: Lazy<RwLock<Option<Arc<Database>>>> = Lazy::new(|| RwLock::new(None));
 
 
 const DATABASE_NAME: &str = "subtitles.redb";
+
+pub const MAP_SUBTITLES_TABLE: MultimapTableDefinition<&str, u64> =
+  MultimapTableDefinition::new("map_subtitles");
+pub const INSTALLED_SUBTITLES_TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("installed_subtitles");
 
 pub struct SubtitleDatabaseManager{
     pub subtitle_directory: PathBuf
@@ -68,5 +74,9 @@ impl SubtitleDatabaseManager{
 
   pub async fn get_installed(self, params: &get_installed_subtitles::GetInstalledSubtitlesParams) -> anyhow::Result<HashMap<u64, GetInstalledSubtitlesData>>{
     get_installed_subtitles::new(self, params).await
+  }
+
+  pub async fn remove_installed(self, params: &remove_installed_subtitle::RemoveInstalledSubtitlesParams) -> anyhow::Result<()>{
+    remove_installed_subtitle::new(self, params).await
   }
 }

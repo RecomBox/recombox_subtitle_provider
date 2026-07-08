@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{to_string, to_vec};
 use base64::{engine::general_purpose, Engine as _};
 
-use redb::TableDefinition;
 use std::path::PathBuf;
 use std::fs;
 use std::io;
@@ -11,6 +10,8 @@ use tokio::io::AsyncWriteExt;
 use futures_util::StreamExt;
 use zip::ZipArchive;
 
+use crate::manage_subtitle::INSTALLED_SUBTITLES_TABLE;
+use crate::manage_subtitle::MAP_SUBTITLES_TABLE;
 use crate::{global_types::Source, manage_subtitle::SubtitleDatabaseManager};
 
 
@@ -101,19 +102,18 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
 
   let write_txn = db.begin_write()?;
   {
-    let raw_table = to_string(&[
+    let raw_key = to_string(&[
       install_subtitle_params.source.to_string(),
       install_subtitle_params.id.clone(),
       install_subtitle_params.season_index.to_string(),
       install_subtitle_params.episode_index.to_string()
     ])?;
 
-    let base64_encoded_table = general_purpose::STANDARD.encode(raw_table.as_bytes());
+    let base64_encoded_map_key = general_purpose::STANDARD.encode(raw_key.as_bytes());
 
-    let table_template: TableDefinition<u64, &[u8]> = TableDefinition::new(&base64_encoded_table);
 
-    let mut table = write_txn.open_table(table_template)?;
-
+    let mut installed_subtitles_table = write_txn.open_table(INSTALLED_SUBTITLES_TABLE)?;
+    let mut map_subtitles_table = write_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?;
     
     for sub_path in sub_path_vec{
       let generator = SnowID::new(1)?;
@@ -142,7 +142,9 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
         move_path.to_string_lossy().to_string(),
       ])?;
 
-      table.insert(sub_id, encoded_value.as_slice())?;
+      installed_subtitles_table.insert(sub_id, encoded_value.as_slice())?;
+
+      map_subtitles_table.insert(base64_encoded_map_key.as_str(), sub_id)?;
     }
 
   }
@@ -150,7 +152,6 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
 
   fs::remove_dir_all(download_dir)?;
 
-
-  todo!();
+  Ok(())
 
 }
