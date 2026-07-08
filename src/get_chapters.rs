@@ -3,14 +3,14 @@ use visdom::Vis;
 
 use crate::{global_types::Source, search};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetChaptersParams{
   pub imdb_id: String,
   pub source: Source,
 }
 
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ChapterData{
   pub title: String,
   pub link: String

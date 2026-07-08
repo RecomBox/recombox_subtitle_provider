@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SubtitleData{
   pub title: String,
   pub link: String
@@ -12,7 +12,7 @@ pub struct SubtitleData{
 
 
 pub async fn new(link: &str) -> anyhow::Result<HashMap<String, Vec<SubtitleData>>>{
-
+  
 
   let url = format!("https://subdl.com{}", link);
   

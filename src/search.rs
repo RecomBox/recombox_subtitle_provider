@@ -4,14 +4,14 @@ use serde_json::Value;
 
 use crate::global_types::Source;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SearchParams{
   pub imdb_id: String,
   pub source: Source,
 }
 
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SearchData{
   pub title: String,
   pub poster_url: String,

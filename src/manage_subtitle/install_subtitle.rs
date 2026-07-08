@@ -16,7 +16,7 @@ use crate::{global_types::Source, manage_subtitle::SubtitleDatabaseManager};
 
 
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct InstallSubtitleParams{
   pub source: Source,
   pub id: String,

@@ -10,7 +10,7 @@ use crate::{global_types::Source, manage_subtitle::{INSTALLED_SUBTITLES_TABLE, M
 
 
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RemoveInstalledSubtitlesParams{
   pub source: Source,
   pub id: String,

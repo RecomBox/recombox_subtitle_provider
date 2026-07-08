@@ -22,6 +22,7 @@ pub const MAP_SUBTITLES_TABLE: MultimapTableDefinition<&str, u64> =
   MultimapTableDefinition::new("map_subtitles");
 pub const INSTALLED_SUBTITLES_TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("installed_subtitles");
 
+
 pub struct SubtitleDatabaseManager{
     pub subtitle_directory: PathBuf
 }
