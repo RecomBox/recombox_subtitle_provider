@@ -17,7 +17,7 @@ pub struct GetInstalledSubtitlesParams{
   pub episode_index: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetInstalledSubtitlesData{
   pub title: String,
   pub path: String

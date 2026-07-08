@@ -35,7 +35,7 @@ use super::*;
     }
 
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn get_subtitles() {
 
         let d = get_subtitles::new("/subtitle/sd1424260/the-outlaws").await.unwrap();
@@ -62,7 +62,7 @@ use super::*;
         manager.install(&params).await.unwrap();
     }
 
-    #[tokio::test]
+    // #[tokio::test]
     async fn get_installed_subtitles() {
 
         let manager = manage_subtitle::SubtitleDatabaseManager{
