@@ -24,7 +24,6 @@ pub struct RemoveInstalledSubtitlesParams{
 pub async fn new(db_manager: SubtitleDatabaseManager, params: &RemoveInstalledSubtitlesParams) -> anyhow::Result<()>{
   
   
-
   let db = db_manager.get_db()?;
 
   let write_txn = db.begin_write()?;
