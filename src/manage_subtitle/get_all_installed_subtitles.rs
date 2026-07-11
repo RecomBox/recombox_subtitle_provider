@@ -4,11 +4,11 @@ use base64::{engine::general_purpose, Engine as _};
 use redb::{ReadableDatabase, ReadableMultimapTable};
 
 
-use crate::{ global_types::Source, manage_subtitle::{INSTALLED_SUBTITLES_TABLE, MAP_SUBTITLES_TABLE, SubtitleDatabaseManager}};
+use crate::{ manage_subtitle::{INSTALLED_SUBTITLES_TABLE, MAP_SUBTITLES_TABLE, SubtitleDatabaseManager}};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetAllInstalledSubtitlesData{
-  pub source: Source,
+  pub source: String,
   pub id: String,
   pub season_index: usize,
   pub episode_index: usize,
@@ -50,8 +50,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager) -> anyhow::Result<Vec<GetA
 
     let serde_key:Vec<&str> = from_str(&raw_key)?;
 
-    let source = Source::from_str(&serde_key[0].to_string())
-      .ok_or(anyhow::anyhow!("Invalid Source"))?;
+    let source = serde_key[0].to_string();
     let id = serde_key[1].to_string();
     let season_index = serde_key[2].parse::<usize>()?;
     let episode_index = serde_key[3].parse::<usize>()?;
