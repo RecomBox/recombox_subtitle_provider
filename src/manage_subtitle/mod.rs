@@ -7,11 +7,13 @@ use redb::TableDefinition;
 use std::fs;
 use once_cell::sync::Lazy;
 
+use crate::manage_subtitle::get_all_installed_subtitles::GetAllInstalledSubtitlesData;
 use crate::manage_subtitle::get_installed_subtitles::GetInstalledSubtitlesData;
 
 pub mod install_subtitle;
 pub mod get_installed_subtitles;
 pub mod remove_installed_subtitle;
+pub mod get_all_installed_subtitles;
 
 static DATABASE: Lazy<RwLock<Option<Arc<Database>>>> = Lazy::new(|| RwLock::new(None));
 
@@ -75,6 +77,10 @@ impl SubtitleDatabaseManager{
 
   pub async fn get_installed(self, params: &get_installed_subtitles::GetInstalledSubtitlesParams) -> anyhow::Result<HashMap<u64, GetInstalledSubtitlesData>>{
     get_installed_subtitles::new(self, params).await
+  }
+
+  pub async fn get_all_installed(self) -> anyhow::Result<Vec<GetAllInstalledSubtitlesData>>{
+    get_all_installed_subtitles::new(self).await
   }
 
   pub async fn remove_installed(self, params: &remove_installed_subtitle::RemoveInstalledSubtitlesParams) -> anyhow::Result<()>{

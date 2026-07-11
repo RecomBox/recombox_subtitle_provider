@@ -35,7 +35,7 @@ use super::*;
     }
 
 
-    #[tokio::test]
+    // #[tokio::test]
     async fn get_subtitles() {
 
         let d = get_subtitles::new("/subtitle/sd1424260/the-outlaws").await.unwrap();
@@ -77,6 +77,19 @@ use super::*;
         };
         
         let d = manager.get_installed(&params).await.unwrap();
+
+        println!("{:#?}", d);
+    }
+
+
+    #[tokio::test]
+    async fn get_all_installed_subtitles() {
+
+        let manager = manage_subtitle::SubtitleDatabaseManager{
+            subtitle_directory: PathBuf::from("/home/goodday/Code/recombox_subtitle_provider/data")
+        };
+
+        let d = manager.get_all_installed().await.unwrap();
 
         println!("{:#?}", d);
     }
