@@ -13,8 +13,6 @@ use crate::{global_types::Source, manage_subtitle::{INSTALLED_SUBTITLES_TABLE, M
 pub struct GetInstalledSubtitlesParams{
   pub source: Source,
   pub id: String,
-  pub season_index: usize,
-  pub episode_index: usize,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -33,9 +31,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, params: &GetInstalledSubti
   
   let raw_key = to_string(&[
     params.source.to_string(),
-    params.id.clone(),
-    params.season_index.to_string(),
-    params.episode_index.to_string()
+    params.id.clone()
   ])?;
 
   let base64_encoded_map_key = general_purpose::STANDARD.encode(raw_key.as_bytes());
@@ -58,7 +54,9 @@ pub async fn new(db_manager: SubtitleDatabaseManager, params: &GetInstalledSubti
       None => continue,
     };
 
-    let sub_value:Vec<&str> = from_slice(&sub.value())?;
+    let base64_decoded_value = general_purpose::STANDARD.decode(sub.value())?;
+
+    let sub_value:Vec<&str> = from_slice(&base64_decoded_value)?;
 
     result.insert(sub_id.value(), GetInstalledSubtitlesData{
       title: sub_value[0].to_string(),

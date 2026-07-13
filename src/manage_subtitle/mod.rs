@@ -20,9 +20,8 @@ static DATABASE: Lazy<RwLock<Option<Arc<Database>>>> = Lazy::new(|| RwLock::new(
 
 const DATABASE_NAME: &str = "subtitles.redb";
 
-pub const MAP_SUBTITLES_TABLE: MultimapTableDefinition<&str, u64> =
-  MultimapTableDefinition::new("map_subtitles");
-pub const INSTALLED_SUBTITLES_TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("installed_subtitles");
+pub const MAP_SUBTITLES_TABLE: MultimapTableDefinition<&str, u64> = MultimapTableDefinition::new("map_subtitles");
+pub const INSTALLED_SUBTITLES_TABLE: TableDefinition<u64, &str> = TableDefinition::new("installed_subtitles_v2");
 
 
 pub struct SubtitleDatabaseManager{
@@ -39,9 +38,7 @@ impl SubtitleDatabaseManager{
     let db_path = PathBuf::from(&db_dir)
         .join(DATABASE_NAME);
     
-    let is_exist = fs::exists(&db_path)?;
-
-    if is_exist {
+    if fs::exists(&db_path)? {
         let read_gaurd = DATABASE.read()
           .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 

@@ -20,8 +20,6 @@ use crate::{global_types::Source, manage_subtitle::SubtitleDatabaseManager};
 pub struct InstallSubtitleParams{
   pub source: Source,
   pub id: String,
-  pub season_index: usize,
-  pub episode_index: usize,
   pub language: String,
   pub link: String,
 }
@@ -33,9 +31,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
 
   let subtitle_dir = PathBuf::from(&db_manager.subtitle_directory)
     .join(&install_subtitle_params.source.to_string())
-    .join(&install_subtitle_params.id)
-    .join(&install_subtitle_params.season_index.to_string())
-    .join(&install_subtitle_params.episode_index.to_string());
+    .join(&install_subtitle_params.id);
 
   fs::create_dir_all(&subtitle_dir)?;
 
@@ -104,9 +100,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
   {
     let raw_key = to_string(&[
       install_subtitle_params.source.to_string(),
-      install_subtitle_params.id.clone(),
-      install_subtitle_params.season_index.to_string(),
-      install_subtitle_params.episode_index.to_string()
+      install_subtitle_params.id.clone()
     ])?;
 
     let base64_encoded_map_key = general_purpose::STANDARD.encode(raw_key.as_bytes());
@@ -141,7 +135,9 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
         move_path.to_string_lossy().to_string(),
       ])?;
 
-      installed_subtitles_table.insert(sub_id, encoded_value.as_slice())?;
+      let base64_encoded_value = general_purpose::STANDARD.encode(encoded_value);
+
+      installed_subtitles_table.insert(sub_id, base64_encoded_value.as_str())?;
 
       map_subtitles_table.insert(base64_encoded_map_key.as_str(), sub_id)?;
     }

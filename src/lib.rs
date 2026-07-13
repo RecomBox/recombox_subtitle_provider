@@ -52,8 +52,6 @@ use super::*;
         let params = manage_subtitle::install_subtitle::InstallSubtitleParams{
             source: global_types::Source::Movies,
             id: "test".to_string(),
-            season_index: 0,
-            episode_index: 0,
             language: "English".to_string(),
             link: "https://dl.subdl.com/subtitle/1671015-2381556.zip".to_string()
             
@@ -72,8 +70,6 @@ use super::*;
         let params = manage_subtitle::get_installed_subtitles::GetInstalledSubtitlesParams{
             source: global_types::Source::Movies,
             id: "test".to_string(),
-            season_index: 0,
-            episode_index: 0,
         };
         
         let d = manager.get_installed(&params).await.unwrap();

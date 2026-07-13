@@ -10,8 +10,6 @@ use crate::{ manage_subtitle::{INSTALLED_SUBTITLES_TABLE, MAP_SUBTITLES_TABLE, S
 pub struct GetAllInstalledSubtitlesData{
   pub source: String,
   pub id: String,
-  pub season_index: usize,
-  pub episode_index: usize,
   pub subtitle_id: u64,
   pub title: String,
   pub path: String
@@ -63,13 +61,13 @@ pub async fn new(db_manager: SubtitleDatabaseManager) -> anyhow::Result<Vec<GetA
         None => continue,
       };
 
-      let sub_value:Vec<&str> = from_slice(&sub.value())?;
+      let base64_decoded_value = general_purpose::STANDARD.decode(sub.value())?;
+
+      let sub_value:Vec<&str> = from_slice(&base64_decoded_value)?;
 
       result.push(GetAllInstalledSubtitlesData{
         source:source.clone(),
         id:id.clone(),
-        season_index,
-        episode_index,
         subtitle_id:sub_id,
         title: sub_value[0].to_string(),
         path: sub_value[1].to_string()
