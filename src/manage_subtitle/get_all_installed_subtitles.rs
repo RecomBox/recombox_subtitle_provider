@@ -50,8 +50,6 @@ pub async fn new(db_manager: SubtitleDatabaseManager) -> anyhow::Result<Vec<GetA
 
     let source = serde_key[0].to_string();
     let id = serde_key[1].to_string();
-    let season_index = serde_key[2].parse::<usize>()?;
-    let episode_index = serde_key[3].parse::<usize>()?;
 
     for value in value_entry{
       let sub_id = value?.value();
