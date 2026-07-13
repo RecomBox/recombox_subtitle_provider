@@ -18,10 +18,10 @@ pub mod get_all_installed_subtitles;
 static DATABASE: Lazy<RwLock<Option<Arc<Database>>>> = Lazy::new(|| RwLock::new(None));
 
 
-const DATABASE_NAME: &str = "subtitles.redb";
+const DATABASE_NAME: &str = "subtitles_v2.redb";
 
 pub const MAP_SUBTITLES_TABLE: MultimapTableDefinition<&str, u64> = MultimapTableDefinition::new("map_subtitles");
-pub const INSTALLED_SUBTITLES_TABLE: TableDefinition<u64, &str> = TableDefinition::new("installed_subtitles_v2");
+pub const INSTALLED_SUBTITLES_TABLE: TableDefinition<u64, &str> = TableDefinition::new("installed_subtitles");
 
 
 pub struct SubtitleDatabaseManager{
