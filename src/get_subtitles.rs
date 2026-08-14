@@ -33,19 +33,24 @@ pub async fn new(link: &str) -> anyhow::Result<HashMap<String, Vec<SubtitleData>
 
     let html = res.text().await?;
 
+
+
     let vis = Vis::load(html)
       .map_err(|e| anyhow::anyhow!(e))?;
 
-    let wrapper = vis.find(r#"[dir="ltr"]"#).find("div").first();
+    let wrapper = vis.find(r#"[data-list-view=""]"#);
 
-    for lang_item_dom in wrapper.find(".flex.flex-col.mt-4.select-none"){
+    for lang_item_dom in wrapper.find("div"){
       let lang_item_ele = Vis::dom(&lang_item_dom);
+      
+      let lang = lang_item_ele.find("div").first()
+        .find("h2").text()
+        .to_string();
 
-      let lang = lang_item_ele.find("h2.text-lg.font-semibold").text();
 
       result.insert(lang.to_string(), vec![]);
 
-      let li_ele_list = lang_item_ele.find("li.flex.justify-between.flex-col");
+      let li_ele_list = lang_item_ele.find("div").find("li.flex.justify-between.flex-col");
 
       for li_dom in li_ele_list{
         let li_ele = Vis::dom(&li_dom);
