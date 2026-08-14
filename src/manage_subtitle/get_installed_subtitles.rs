@@ -37,9 +37,16 @@ pub async fn new(db_manager: SubtitleDatabaseManager, params: &GetInstalledSubti
   let base64_encoded_map_key = general_purpose::STANDARD.encode(raw_key.as_bytes());
 
 
-  let installed_sub_table = read_txn.open_table(INSTALLED_SUBTITLES_TABLE)?;
-  let map_sub_table = read_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?;
-
+  let (installed_sub_table, map_sub_table) = match (|| {
+    Ok::<_, redb::TableError>((
+      read_txn.open_table(INSTALLED_SUBTITLES_TABLE)?,
+      read_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?,
+    ))
+  })() {
+    Ok(tables) => tables,
+    Err(redb::TableError::TableDoesNotExist(_)) => return Ok(HashMap::new()),
+    Err(e) => return Err(e.into()),
+  };
 
   let values = map_sub_table.get(base64_encoded_map_key.as_str())?.into_iter();
 

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{from_slice, from_str};
 use base64::{engine::general_purpose, Engine as _};
-use redb::{ReadableDatabase, ReadableMultimapTable};
+use redb::{ReadableDatabase, ReadableMultimapTable, TableError};
 
 
 use crate::{ manage_subtitle::{INSTALLED_SUBTITLES_TABLE, MAP_SUBTITLES_TABLE, SubtitleDatabaseManager}};
@@ -24,19 +24,18 @@ pub async fn new(db_manager: SubtitleDatabaseManager) -> anyhow::Result<Vec<GetA
   let db = db_manager.get_db()?;
 
   let read_txn = db.begin_read()?;
-  
-  // let raw_key = to_string(&[
-  //   params.source.to_string(),
-  //   params.id.clone(),
-  //   params.season_index.to_string(),
-  //   params.episode_index.to_string()
-  // ])?;
-
-  // let base64_encoded_map_key = general_purpose::STANDARD.encode(raw_key.as_bytes());
 
 
-  let installed_sub_table = read_txn.open_table(INSTALLED_SUBTITLES_TABLE)?;
-  let map_sub_table = read_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?;
+  let (installed_sub_table, map_sub_table) = match (|| {
+    Ok::<_, TableError>((
+      read_txn.open_table(INSTALLED_SUBTITLES_TABLE)?,
+      read_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?,
+    ))
+  })() {
+    Ok(tables) => tables,
+    Err(TableError::TableDoesNotExist(_)) => return Ok(Vec::new()),
+    Err(e) => return Err(e.into()),
+  };
 
   let mut result = Vec::new();
 
