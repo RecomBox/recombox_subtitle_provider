@@ -38,7 +38,7 @@ use super::*;
     #[tokio::test]
     async fn get_subtitles() {
 
-        let d = get_subtitles::new("/subtitle/sd1424260/the-outlaws").await.unwrap();
+        let d = get_subtitles::new("/subtitle/sd1629404/spider-man-no-way-home").await.unwrap();
         println!("{:#?}", d);
     }
 

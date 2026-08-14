@@ -23,7 +23,9 @@ pub async fn new(link: &str) -> anyhow::Result<HashMap<String, Vec<SubtitleData>
   
     let client = reqwest::Client::new();
 
-    let res = match client.get(url).send().await{
+    let res = match client.get(url)
+    .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
+    .send().await{
       Ok(r) => r,
       Err(e) => {
         eprintln!("{}", e);
