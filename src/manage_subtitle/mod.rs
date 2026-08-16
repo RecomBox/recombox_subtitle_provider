@@ -50,7 +50,7 @@ impl SubtitleDatabaseManager{
 
     let conn = Connection::open(&db_path).await?;
 
-    conn.call(|conn| {
+    conn.call(|conn| -> Result<(), tokio_rusqlite::rusqlite::Error> {
       conn.execute(
         "CREATE TABLE IF NOT EXISTS subtitles (
           id       INTEGER PRIMARY KEY,

@@ -18,7 +18,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager) -> anyhow::Result<Vec<GetA
 
   let db = db_manager.get_db().await?;
 
-  let result = db.call(|conn| {
+  let result = db.call(|conn| -> Result<Vec<GetAllInstalledSubtitlesData>, tokio_rusqlite::rusqlite::Error> {
     let mut stmt = conn.prepare(
       "SELECT id, source, media_id, title, path FROM subtitles"
     )?;

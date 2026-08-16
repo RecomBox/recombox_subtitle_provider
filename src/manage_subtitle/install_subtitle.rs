@@ -123,7 +123,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
   let source = install_subtitle_params.source.to_string();
   let media_id = install_subtitle_params.id.clone();
 
-  db.call(move |conn| {
+  db.call(move |conn| -> Result<(), tokio_rusqlite::rusqlite::Error> {
     let tx = conn.transaction()?;
     {
       let mut stmt = tx.prepare(

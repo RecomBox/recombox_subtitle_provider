@@ -26,7 +26,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, params: &GetInstalledSubti
   let source = params.source.to_string();
   let media_id = params.id.clone();
 
-  let result = db.call(move |conn| {
+  let result = db.call(move |conn| -> Result<HashMap<u64, GetInstalledSubtitlesData>, tokio_rusqlite::rusqlite::Error> {
     let mut stmt = conn.prepare(
       "SELECT id, title, path FROM subtitles WHERE source = ?1 AND media_id = ?2"
     )?;

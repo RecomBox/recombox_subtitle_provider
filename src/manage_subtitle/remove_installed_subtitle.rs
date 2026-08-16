@@ -32,7 +32,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, params: &RemoveInstalledSu
     let source = source.clone();
     let media_id = media_id.clone();
 
-    db.call(move |conn| {
+    db.call(move |conn| -> Result<Option<String>, tokio_rusqlite::rusqlite::Error> {
       conn.query_row(
         "SELECT path FROM subtitles WHERE id = ?1 AND source = ?2 AND media_id = ?3",
         tokio_rusqlite::rusqlite::params![subtitle_id, source, media_id],
@@ -51,7 +51,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, params: &RemoveInstalledSu
     fs::remove_file(&sub_path)?;
   }
 
-  db.call(move |conn| {
+  db.call(move |conn| -> Result<(), tokio_rusqlite::rusqlite::Error> {
     conn.execute(
       "DELETE FROM subtitles WHERE id = ?1 AND source = ?2 AND media_id = ?3",
       tokio_rusqlite::rusqlite::params![subtitle_id, source, media_id],
