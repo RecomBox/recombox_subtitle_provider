@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{to_string, to_vec};
-use base64::{engine::general_purpose, Engine as _};
 
 use std::path::PathBuf;
 use std::fs;
@@ -10,10 +8,7 @@ use tokio::io::AsyncWriteExt;
 use futures_util::StreamExt;
 use zip::ZipArchive;
 
-use crate::manage_subtitle::INSTALLED_SUBTITLES_TABLE;
-use crate::manage_subtitle::MAP_SUBTITLES_TABLE;
 use crate::{global_types::Source, manage_subtitle::SubtitleDatabaseManager};
-
 
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -43,13 +38,13 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
   let zip_id = generator.generate();
 
   let zip_path = download_dir.join(format!("{}.zip", zip_id));
-  
+
 
   let res = client.get(install_subtitle_params.link.clone()).send().await?;
-  
+
   let mut file = tokio::fs::File::create(&zip_path).await?;
 
-  
+
   let mut stream = res.bytes_stream();
 
   while let Some(chunk) = stream.next().await {
@@ -85,7 +80,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
 
     if path.is_file() {
       if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        
+
         let ext = ext.to_lowercase();
         if ["srt", "vtt", "ass", "ssa"].contains(&ext.as_str()) {
           sub_path_vec.push(path.to_path_buf());
@@ -93,57 +88,62 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
       }
     }
   }
-  
-  let db = db_manager.get_db()?;
 
-  let write_txn = db.begin_write()?;
-  {
-    let raw_key = to_string(&[
-      install_subtitle_params.source.to_string(),
-      install_subtitle_params.id.clone()
-    ])?;
+  // Move each subtitle file into place and collect the rows we need to
+  // insert. This has to happen before we touch the database, since it
+  // involves blocking filesystem calls.
+  let mut rows: Vec<(u64, String, String)> = Vec::new();
 
-    let base64_encoded_map_key = general_purpose::STANDARD.encode(raw_key.as_bytes());
+  for sub_path in sub_path_vec{
+    let sub_id = generator.generate();
 
+    let file_stem = sub_path.file_stem()
+      .ok_or("")
+      .map_err(|e| anyhow::anyhow!(e))?
+      .to_string_lossy().to_string();
 
-    let mut installed_subtitles_table = write_txn.open_table(INSTALLED_SUBTITLES_TABLE)?;
-    let mut map_subtitles_table = write_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?;
-    
-    for sub_path in sub_path_vec{
-      let sub_id = generator.generate();
+    let file_ext = sub_path.extension()
+      .ok_or("")
+      .map_err(|e| anyhow::anyhow!(e))?
+      .to_string_lossy().to_string();
 
-      let file_stem = sub_path.file_stem()
-        .ok_or("")
-        .map_err(|e| anyhow::anyhow!(e))?
-        .to_string_lossy().to_string();
+    let title = format!("{} | {}", file_stem, install_subtitle_params.language);
 
-      let file_ext = sub_path.extension()
-        .ok_or("")
-        .map_err(|e| anyhow::anyhow!(e))?
-        .to_string_lossy().to_string();
+    let move_path = subtitle_dir.join(format!("{}.{}", sub_id, file_ext));
 
-      let title = format!("{} | {}", file_stem, install_subtitle_params.language);
+    fs::create_dir_all(&subtitle_dir)?;
 
-      let move_path = subtitle_dir.join(format!("{}.{}", sub_id, file_ext));
+    fs::rename(&sub_path, &move_path)?;
 
-      fs::create_dir_all(&subtitle_dir)?;
-
-      fs::rename(&sub_path, &move_path)?;
-
-      let encoded_value = to_vec(&[
-        title,
-        move_path.to_string_lossy().to_string(),
-      ])?;
-
-      let base64_encoded_value = general_purpose::STANDARD.encode(encoded_value);
-
-      installed_subtitles_table.insert(sub_id, base64_encoded_value.as_str())?;
-
-      map_subtitles_table.insert(base64_encoded_map_key.as_str(), sub_id)?;
-    }
-
+    rows.push((sub_id, title, move_path.to_string_lossy().to_string()));
   }
-  write_txn.commit()?;
+
+  let db = db_manager.get_db().await?;
+
+  let source = install_subtitle_params.source.to_string();
+  let media_id = install_subtitle_params.id.clone();
+
+  db.call(move |conn| {
+    let tx = conn.transaction()?;
+    {
+      let mut stmt = tx.prepare(
+        "INSERT INTO subtitles (id, source, media_id, title, path) VALUES (?1, ?2, ?3, ?4, ?5)"
+      )?;
+
+      for (sub_id, title, path) in &rows {
+        stmt.execute(tokio_rusqlite::rusqlite::params![
+          *sub_id as i64,
+          source,
+          media_id,
+          title,
+          path
+        ])?;
+      }
+    }
+    tx.commit()?;
+
+    Ok(())
+  }).await?;
 
   fs::remove_dir_all(download_dir)?;
 

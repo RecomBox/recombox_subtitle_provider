@@ -1,12 +1,10 @@
-use redb::ReadableTable;
 use serde::{Deserialize, Serialize};
-use serde_json::{to_string, from_slice};
-use base64::{engine::general_purpose, Engine as _};
+use tokio_rusqlite::rusqlite::OptionalExtension;
 
 use std::fs;
 use std::path::PathBuf;
 
-use crate::{global_types::Source, manage_subtitle::{INSTALLED_SUBTITLES_TABLE, MAP_SUBTITLES_TABLE, SubtitleDatabaseManager}};
+use crate::{global_types::Source, manage_subtitle::SubtitleDatabaseManager};
 
 
 
@@ -20,49 +18,47 @@ pub struct RemoveInstalledSubtitlesParams{
 
 
 pub async fn new(db_manager: SubtitleDatabaseManager, params: &RemoveInstalledSubtitlesParams) -> anyhow::Result<()>{
-  
-  
-  let db = db_manager.get_db()?;
 
-  let write_txn = db.begin_write()?;
-  {
-    let raw_table = to_string(&[
-      params.source.to_string(),
-      params.id.clone()
-    ])?;
+  let db = db_manager.get_db().await?;
 
-    let base64_encoded_table = general_purpose::STANDARD.encode(raw_table.as_bytes());
+  let source = params.source.to_string();
+  let media_id = params.id.clone();
+  let subtitle_id = params.subtitle_id as i64;
 
-    let mut installed_sub_table = write_txn.open_table(INSTALLED_SUBTITLES_TABLE)?;
-    let mut map_sub_table = write_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?;
+  // Look up the file path first, since removing it from disk is a
+  // blocking call we don't want to do inside the db worker thread's
+  // transaction.
+  let path: Option<String> = {
+    let source = source.clone();
+    let media_id = media_id.clone();
 
-    
-    {
-      let sub = match installed_sub_table.get(params.subtitle_id)? {
-        Some(sub) => sub,
-        None => return Ok(()),
-      };
-      
+    db.call(move |conn| {
+      conn.query_row(
+        "SELECT path FROM subtitles WHERE id = ?1 AND source = ?2 AND media_id = ?3",
+        tokio_rusqlite::rusqlite::params![subtitle_id, source, media_id],
+        |row| row.get(0)
+      ).optional()
+    }).await?
+  };
 
-      let base64_decoded_value = general_purpose::STANDARD.decode(sub.value())?;
+  let Some(path) = path else {
+    return Ok(());
+  };
 
-      let sub_value:Vec<&str> = from_slice(&base64_decoded_value)?;
+  let sub_path = PathBuf::from(&path);
 
-      let sub_path = PathBuf::from(&sub_value[1]);
-
-      if sub_path.exists() {
-        fs::remove_file(&sub_path)?;
-      }
-    }
-
-    installed_sub_table.remove(params.subtitle_id)?;
-
-    map_sub_table.remove(base64_encoded_table.as_str(), params.subtitle_id)?;
-
+  if sub_path.exists() {
+    fs::remove_file(&sub_path)?;
   }
-  write_txn.commit()?;
-    
 
+  db.call(move |conn| {
+    conn.execute(
+      "DELETE FROM subtitles WHERE id = ?1 AND source = ?2 AND media_id = ?3",
+      tokio_rusqlite::rusqlite::params![subtitle_id, source, media_id],
+    )?;
+
+    Ok(())
+  }).await?;
 
   Ok(())
 

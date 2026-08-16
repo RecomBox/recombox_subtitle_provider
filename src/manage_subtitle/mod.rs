@@ -1,11 +1,9 @@
-use redb::{Database, MultimapTableDefinition};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{RwLock, Arc};
-use redb::TableDefinition;
-
+use std::sync::{Arc, RwLock};
 use std::fs;
 use once_cell::sync::Lazy;
+use tokio_rusqlite::Connection;
 
 use crate::manage_subtitle::get_all_installed_subtitles::GetAllInstalledSubtitlesData;
 use crate::manage_subtitle::get_installed_subtitles::GetInstalledSubtitlesData;
@@ -15,57 +13,69 @@ pub mod get_installed_subtitles;
 pub mod remove_installed_subtitle;
 pub mod get_all_installed_subtitles;
 
-static DATABASE: Lazy<RwLock<Option<Arc<Database>>>> = Lazy::new(|| RwLock::new(None));
+static DATABASE: Lazy<RwLock<Option<Arc<Connection>>>> = Lazy::new(|| RwLock::new(None));
 
-
-const DATABASE_NAME: &str = "subtitles_v2.redb";
-
-pub const MAP_SUBTITLES_TABLE: MultimapTableDefinition<&str, u64> = MultimapTableDefinition::new("map_subtitles");
-pub const INSTALLED_SUBTITLES_TABLE: TableDefinition<u64, &str> = TableDefinition::new("installed_subtitles");
-
+const DATABASE_NAME: &str = "subtitles_v2.sqlite";
 
 pub struct SubtitleDatabaseManager{
     pub subtitle_directory: PathBuf
 }
 
 impl SubtitleDatabaseManager{
-  
-  pub fn get_db(self) -> anyhow::Result<Arc<Database>> {
+
+  pub async fn get_db(&self) -> anyhow::Result<Arc<Connection>> {
+    {
+      let read_guard = DATABASE.read()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+      if let Some(db) = read_guard.clone() {
+        return Ok(db);
+      }
+    }
+
+    let mut write_guard = DATABASE.write()
+      .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+    // Another task may have created the connection while we were
+    // waiting on the write lock.
+    if let Some(db) = write_guard.clone() {
+      return Ok(db);
+    }
+
     let db_dir = PathBuf::from(&self.subtitle_directory);
 
     fs::create_dir_all(&db_dir)?;
 
-    let db_path = PathBuf::from(&db_dir)
-        .join(DATABASE_NAME);
-    
-    if fs::exists(&db_path)? {
-        let read_gaurd = DATABASE.read()
-          .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let db_path = db_dir.join(DATABASE_NAME);
 
-        if let Some(db) = read_gaurd.clone() {
-          return Ok(db);
-        }
-    }
+    let conn = Connection::open(&db_path).await?;
 
-    let mut write_gaurd = DATABASE.write()
-      .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    conn.call(|conn| {
+      conn.execute(
+        "CREATE TABLE IF NOT EXISTS subtitles (
+          id       INTEGER PRIMARY KEY,
+          source   TEXT NOT NULL,
+          media_id TEXT NOT NULL,
+          title    TEXT NOT NULL,
+          path     TEXT NOT NULL
+        )",
+        [],
+      )?;
 
-    let raw_db = match Database::create(&db_path)
-        .map_err(|e| e.to_string()){
-          Ok(db) => db,
-          Err(_) => {
-            if db_path.exists() {
-                fs::remove_file(&db_path)?;
-            }
-            Database::create(&db_path)?
-          }
-        };
+      conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_subtitles_source_media_id
+          ON subtitles (source, media_id)",
+        [],
+      )?;
 
-    let db = Arc::new(raw_db);
-    
-    *write_gaurd = Some(db.clone());
-    return Ok(db.clone());
-    
+      Ok(())
+    }).await?;
+
+    let db = Arc::new(conn);
+
+    *write_guard = Some(db.clone());
+
+    Ok(db)
   }
 
   pub async fn install(self, params: &install_subtitle::InstallSubtitleParams) -> anyhow::Result<()>{

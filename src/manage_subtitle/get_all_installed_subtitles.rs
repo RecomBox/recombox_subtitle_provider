@@ -1,10 +1,6 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{from_slice, from_str};
-use base64::{engine::general_purpose, Engine as _};
-use redb::{ReadableDatabase, ReadableMultimapTable, TableError};
 
-
-use crate::{ manage_subtitle::{INSTALLED_SUBTITLES_TABLE, MAP_SUBTITLES_TABLE, SubtitleDatabaseManager}};
+use crate::manage_subtitle::SubtitleDatabaseManager;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetAllInstalledSubtitlesData{
@@ -20,60 +16,37 @@ pub struct GetAllInstalledSubtitlesData{
 
 pub async fn new(db_manager: SubtitleDatabaseManager) -> anyhow::Result<Vec<GetAllInstalledSubtitlesData>>{
 
-  
-  let db = db_manager.get_db()?;
+  let db = db_manager.get_db().await?;
 
-  let read_txn = db.begin_read()?;
+  let result = db.call(|conn| {
+    let mut stmt = conn.prepare(
+      "SELECT id, source, media_id, title, path FROM subtitles"
+    )?;
 
+    let rows = stmt.query_map([], |row| {
+      let subtitle_id: i64 = row.get(0)?;
+      let source: String = row.get(1)?;
+      let id: String = row.get(2)?;
+      let title: String = row.get(3)?;
+      let path: String = row.get(4)?;
 
-  let (installed_sub_table, map_sub_table) = match (|| {
-    Ok::<_, TableError>((
-      read_txn.open_table(INSTALLED_SUBTITLES_TABLE)?,
-      read_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?,
-    ))
-  })() {
-    Ok(tables) => tables,
-    Err(TableError::TableDoesNotExist(_)) => return Ok(Vec::new()),
-    Err(e) => return Err(e.into()),
-  };
+      Ok(GetAllInstalledSubtitlesData{
+        source,
+        id,
+        subtitle_id: subtitle_id as u64,
+        title,
+        path
+      })
+    })?;
 
-  let mut result = Vec::new();
+    let mut result = Vec::new();
 
-  for entry in map_sub_table.iter()?{
-    let (key, value_entry) = entry?;
-
-    let base64_dencoded_map_key = general_purpose::STANDARD.decode(key.value())?;
-    let raw_key = String::from_utf8(base64_dencoded_map_key)?;
-
-    let serde_key:Vec<&str> = from_str(&raw_key)?;
-
-    let source = serde_key[0].to_string();
-    let id = serde_key[1].to_string();
-
-    for value in value_entry{
-      let sub_id = value?.value();
-
-      let sub = match installed_sub_table.get(sub_id)? {
-        Some(sub) => sub,
-        None => continue,
-      };
-
-      let base64_decoded_value = general_purpose::STANDARD.decode(sub.value())?;
-
-      let sub_value:Vec<&str> = from_slice(&base64_decoded_value)?;
-
-      result.push(GetAllInstalledSubtitlesData{
-        source:source.clone(),
-        id:id.clone(),
-        subtitle_id:sub_id,
-        title: sub_value[0].to_string(),
-        path: sub_value[1].to_string()
-      });
-
+    for row in rows {
+      result.push(row?);
     }
 
-  }
-  
+    Ok(result)
+  }).await?;
 
   Ok(result)
 

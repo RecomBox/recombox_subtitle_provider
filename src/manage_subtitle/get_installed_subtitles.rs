@@ -1,11 +1,8 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{to_string, from_slice};
-use base64::{engine::general_purpose, Engine as _};
 
-use redb::ReadableDatabase;
 use std::collections::HashMap;
 
-use crate::{global_types::Source, manage_subtitle::{INSTALLED_SUBTITLES_TABLE, MAP_SUBTITLES_TABLE, SubtitleDatabaseManager}};
+use crate::{global_types::Source, manage_subtitle::SubtitleDatabaseManager};
 
 
 
@@ -24,55 +21,37 @@ pub struct GetInstalledSubtitlesData{
 
 pub async fn new(db_manager: SubtitleDatabaseManager, params: &GetInstalledSubtitlesParams) -> anyhow::Result<HashMap<u64, GetInstalledSubtitlesData>>{
 
-  
-  let db = db_manager.get_db()?;
+  let db = db_manager.get_db().await?;
 
-  let read_txn = db.begin_read()?;
-  
-  let raw_key = to_string(&[
-    params.source.to_string(),
-    params.id.clone()
-  ])?;
+  let source = params.source.to_string();
+  let media_id = params.id.clone();
 
-  let base64_encoded_map_key = general_purpose::STANDARD.encode(raw_key.as_bytes());
+  let result = db.call(move |conn| {
+    let mut stmt = conn.prepare(
+      "SELECT id, title, path FROM subtitles WHERE source = ?1 AND media_id = ?2"
+    )?;
 
+    let rows = stmt.query_map(
+      tokio_rusqlite::rusqlite::params![source, media_id],
+      |row| {
+        let id: i64 = row.get(0)?;
+        let title: String = row.get(1)?;
+        let path: String = row.get(2)?;
 
-  let (installed_sub_table, map_sub_table) = match (|| {
-    Ok::<_, redb::TableError>((
-      read_txn.open_table(INSTALLED_SUBTITLES_TABLE)?,
-      read_txn.open_multimap_table(MAP_SUBTITLES_TABLE)?,
-    ))
-  })() {
-    Ok(tables) => tables,
-    Err(redb::TableError::TableDoesNotExist(_)) => return Ok(HashMap::new()),
-    Err(e) => return Err(e.into()),
-  };
+        Ok((id as u64, GetInstalledSubtitlesData{ title, path }))
+      }
+    )?;
 
-  let values = map_sub_table.get(base64_encoded_map_key.as_str())?.into_iter();
+    let mut result: HashMap<u64, GetInstalledSubtitlesData> = HashMap::new();
 
-  let mut result: HashMap<u64, GetInstalledSubtitlesData> = HashMap::new();
+    for row in rows {
+      let (id, data) = row?;
+      result.insert(id, data);
+    }
 
-  for entry in values{
-    let sub_id = entry?;
+    Ok(result)
+  }).await?;
 
-
-    let sub = match installed_sub_table.get(sub_id.value())? {
-      Some(sub) => sub,
-      None => continue,
-    };
-
-    let base64_decoded_value = general_purpose::STANDARD.decode(sub.value())?;
-
-    let sub_value:Vec<&str> = from_slice(&base64_decoded_value)?;
-
-    result.insert(sub_id.value(), GetInstalledSubtitlesData{
-      title: sub_value[0].to_string(),
-      path: sub_value[1].to_string()
-    });
-  }
-  
-
-
-  return Ok(result);
+  Ok(result)
 
 }
