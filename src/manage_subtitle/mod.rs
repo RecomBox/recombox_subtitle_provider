@@ -24,6 +24,8 @@ pub struct SubtitleDatabaseManager{
 impl SubtitleDatabaseManager{
 
   pub async fn get_db(&self) -> anyhow::Result<Arc<Connection>> {
+    // Fast path: guard is only held for a synchronous clone, never
+    // across an `.await`, so this future stays `Send`.
     {
       let read_guard = DATABASE.read()
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
@@ -33,15 +35,9 @@ impl SubtitleDatabaseManager{
       }
     }
 
-    let mut write_guard = DATABASE.write()
-      .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-
-    // Another task may have created the connection while we were
-    // waiting on the write lock.
-    if let Some(db) = write_guard.clone() {
-      return Ok(db);
-    }
-
+    // Slow path: open the connection and create the schema *before*
+    // taking any lock, since `std::sync::RwLock` guards aren't `Send`
+    // and must never be held across an `.await` point.
     let db_dir = PathBuf::from(&self.subtitle_directory);
 
     fs::create_dir_all(&db_dir)?;
@@ -73,7 +69,21 @@ impl SubtitleDatabaseManager{
 
     let db = Arc::new(conn);
 
-    *write_guard = Some(db.clone());
+    // Now do the check-and-store under the write lock. This block is
+    // fully synchronous (no `.await` inside it), so the guard never
+    // crosses an await point.
+    {
+      let mut write_guard = DATABASE.write()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+      // Another task may have raced us and already created a
+      // connection - prefer that one so we don't leak connections.
+      if let Some(existing) = write_guard.clone() {
+        return Ok(existing);
+      }
+
+      *write_guard = Some(db.clone());
+    }
 
     Ok(db)
   }
