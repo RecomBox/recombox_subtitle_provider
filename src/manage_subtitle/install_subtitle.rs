@@ -40,7 +40,12 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
   let zip_path = download_dir.join(format!("{}.zip", zip_id));
 
 
-  let res = client.get(install_subtitle_params.link.clone()).send().await?;
+  let res = client.get(install_subtitle_params.link.clone())
+    .header(
+      "user-agent",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    )
+    .send().await?;
 
   let mut file = tokio::fs::File::create(&zip_path).await?;
 

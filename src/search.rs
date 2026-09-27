@@ -26,7 +26,12 @@ pub async fn new(search_params: &SearchParams) -> anyhow::Result<Option<SearchDa
   println!("{}", url);
   let client = reqwest::Client::new();
 
-  let res = client.get(url).send().await?;
+  let res = client.get(url)
+    .header(
+      "user-agent",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    )
+  .send().await?;
 
   let data: Value = res.json().await?;
 
