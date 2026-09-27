@@ -43,7 +43,7 @@ pub async fn new(db_manager: SubtitleDatabaseManager, install_subtitle_params: &
   let res = client.get(install_subtitle_params.link.clone())
     .header(
       "user-agent",
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      "PostmanRuntime/7.53.0",
     )
     .send().await?;
 

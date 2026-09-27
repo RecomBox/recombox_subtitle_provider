@@ -42,7 +42,7 @@ use super::*;
         println!("{:#?}", d);
     }
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn install_subtitle() {
 
         let manager = manage_subtitle::SubtitleDatabaseManager{
@@ -60,7 +60,7 @@ use super::*;
         manager.install(&params).await.unwrap();
     }
 
-    #[tokio::test]
+    // #[tokio::test]
     async fn get_installed_subtitles() {
 
         let manager = manage_subtitle::SubtitleDatabaseManager{
