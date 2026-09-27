@@ -31,17 +31,29 @@ pub async fn new(get_chapters_params: &GetChaptersParams) -> anyhow::Result<Vec<
   
 
   let url = format!("https://subdl.com{}", search_result.link);
-  
+
   let client = reqwest::Client::new();
 
-  let res = client.get(url).send().await?;
+  let res = client.get(url)
+    .header(
+      "user-agent",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    )
+    .send().await?;
+
+  if !res.status().is_success() {
+    Err(anyhow::anyhow!(
+      "request failed with status: {}",
+      res.status()
+    ))?;
+  }
 
   let html = res.text().await?;
 
   let vis = Vis::load(html)
     .map_err(|e| anyhow::anyhow!(e))?;
 
-  let ele_wrap = vis.find(r#".mt-5.flex.flex-col.gap-4[style="direction:ltr"]"#);
+  let ele_wrap = vis.find(r#".mt-5.flex.flex-col.gap-4"#);
 
   let a_ele_li = ele_wrap.find("a");
 

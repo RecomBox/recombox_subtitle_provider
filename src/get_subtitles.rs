@@ -19,6 +19,7 @@ pub async fn new(link: &str) -> anyhow::Result<HashMap<String, Vec<SubtitleData>
         retry += 1;
 
         let url = format!("https://subdl.com{}", link);
+        println!("Fetching subtitles from: {}", url);
 
         let client = reqwest::Client::new();
 
@@ -26,7 +27,7 @@ pub async fn new(link: &str) -> anyhow::Result<HashMap<String, Vec<SubtitleData>
             .get(&url)
             .header(
                 "user-agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
             )
             .send()
             .await
@@ -37,6 +38,13 @@ pub async fn new(link: &str) -> anyhow::Result<HashMap<String, Vec<SubtitleData>
                 continue;
             }
         };
+
+        if !res.status().is_success() {
+            Err(anyhow::anyhow!(
+                "request failed with status: {}",
+                res.status()
+            ))?;
+        }
 
         let html = match res.text().await {
             Ok(h) => h,
